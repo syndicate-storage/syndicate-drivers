@@ -32,16 +32,60 @@ log.setLevel(logging.DEBUG)
 BMS_REGISTRATION_EXCHANGE = 'bms_registrations'
 BMS_REGISTRATION_QUEUE = 'bms_registrations'
 
+BMS_REREGISTRATION_SEC = 5
+
 """
 Interface class to iPlant Border Message Server
 """
+class bms_registration_result_client(object):
+    def __init__(self, user_id=None,
+                       application_name=None):
+        self.user_id = user_id
+        self.application_name = application_name
+
+    @classmethod
+    def fromDict(cls, dictionary):
+        return bms_registration_result_client(dictionary['user_id'], dictionary['application_name'])
+
+    def __repr__(self): 
+        return "<bms_registration_result_client %s %s>" % (self.user_id, self.application_name) 
+
+class bms_registration_result(object):
+    def __init__(self, client=None, 
+                       lease_start=0,
+                       lease_expire=0):
+        self.client = client
+        self.lease_start = lease_start
+        self.lease_expire = lease_expire
+
+    @classmethod
+    def fromJson(cls, json_string):
+        if bms_registration_result.isRegistrationJson(json_string):
+            msg = json.loads(json_string)
+            return bms_registration_result(client=bms_registration_result_client.fromDict(msg['client']), 
+                                lease_start=msg['lease_start'],
+                                lease_expire=msg['lease_expire'])
+        else:
+            return None
+
+    @classmethod
+    def isRegistrationJson(cls, json_string):
+        if json_string and len(json_string) > 0:
+            msg = json.loads(json_string)
+            if ('client' in msg) and ('lease_start' in msg) and ('lease_expire' in msg):
+                return True
+        return False
+
+    def __repr__(self): 
+        return "<bms_registration_result %s %d %d>" % (self.client, self.lease_start, self.lease_expire) 
+
 class bms_message_acceptor(object):
     def __init__(self, acceptor="path", 
                        pattern="*"):
         self.acceptor = acceptor
         self.pattern = pattern
 
-    def as_dict(self):
+    def asDict(self):
         return self.__dict__
 
     def __repr__(self): 
@@ -53,7 +97,10 @@ class bms_client(object):
                        vhost="/",
                        user=None,
                        password=None,
-                       appid=None):
+                       appid=None,
+                       auto_reregistration=True,
+                       acceptors=None
+                       ):
         self.host = host
         self.port = port
         self.vhost = vhost
@@ -70,6 +117,10 @@ class bms_client(object):
         self.closing = False
         self.consumer_tag = None
         self.consumer_thread = None
+        self.registration_msg = None
+        self.registration_timer = None
+        self.auto_reregistration = auto_reregistration
+        self.acceptors = acceptors
 
         self.on_connect_callback = None
         self.on_register_callback = None
@@ -157,12 +208,21 @@ class bms_client(object):
         self.consumer_tag = self.channel.basic_consume(self.on_message, 
                                                        queue=self.queue,
                                                        no_ack=False)
+
         # call callback
         if self.on_connect_callback:
             self.on_connect_callback()
 
+        # register automatically
+        if self.auto_reregistration:
+            if self.acceptors:
+                self.register(self.acceptors)
+
     def on_channel_closed(self, channel, reply_code, reply_text):
         log.info('channel closed')
+        if self.registration_timer:
+            self.registration_timer.cancel()
+            self.registration_timer = None
         self.connection.close()
 
     def on_consumer_cancelled(self, method_frame):
@@ -178,8 +238,13 @@ class bms_client(object):
         self.channel.basic_ack(method.delivery_tag)
 
         # call callback
-        if self.on_message_callback:
-            self.on_message_callback(body)
+        # check if a message is registration message
+        if bms_registration_result.isRegistrationJson(body):
+            if self.on_register_callback:
+                self.on_register_callback(bms_registration_result.fromJson(body))
+        else:
+            if self.on_message_callback:
+                self.on_message_callback(body)
 
     def reconnect(self):
         self.connection.ioloop.stop()
@@ -202,7 +267,30 @@ class bms_client(object):
     def on_cancelok(self, unused_frame):
         self.channel.close()
 
-    def register(self, *acceptors):
+    def re_register(self):
+        if self.channel:
+            log.info('re-register')
+            if self.registration_msg:
+                self._register_with_string(self.registration_msg)
+
+    def _register_with_string(self, msg):
+        self.registration_msg = msg
+        # set a message property
+        prop = pika.BasicProperties(reply_to=self.queue)
+
+        # request a registration
+        self.channel.basic_publish(exchange=BMS_REGISTRATION_EXCHANGE,
+                                   routing_key=BMS_REGISTRATION_QUEUE,
+                                   properties=prop,
+                                   body=msg)
+        
+        if self.registration_timer:
+            self.registration_timer.cancel()
+
+        if self.auto_reregistration:
+            self.registration_timer = threading.Timer(BMS_REREGISTRATION_SEC, self.re_register).start()
+
+    def register(self, acceptors):
         log.info('register')
         # make a registration message
         """
@@ -212,23 +300,15 @@ class bms_client(object):
                     "acceptors": [{"acceptor": "path",
                                     "pattern": "/iplant/home/iychoi/*"}] }
         """
-        acceptors_arr = []
+        acceptor_arr = []
         for acceptor in acceptors:
-            acceptors_arr.append(acceptor.as_dict())
+            acceptor_arr.append(acceptor.asDict())
 
         reg_msg = {"request": "lease", 
                     "client": {"user_id": self.user,
                                 "application_name": self.appid},
-                    "acceptors": acceptors_arr}
+                    "acceptors": acceptor_arr}
         reg_msg_str = json.dumps(reg_msg)
 
-        # set a message property
-        prop = pika.BasicProperties(reply_to=self.queue)
-
-        # request a registration
-        self.channel.basic_publish(exchange=BMS_REGISTRATION_EXCHANGE,
-                                   routing_key=BMS_REGISTRATION_QUEUE,
-                                   properties=prop,
-                                   body=reg_msg_str)
-
+        self._register_with_string(reg_msg_str)
 

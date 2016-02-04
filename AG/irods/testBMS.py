@@ -35,32 +35,30 @@ BMS_PORT = 31333
 BMS_VHOST = "/irods/useraccess"
 
 def main():
+    acceptor = bms_client.bms_message_acceptor("path", "*")
     client = bms_client.bms_client(host=BMS_HOST, 
                                 port=BMS_PORT, 
                                 user='iychoi', 
                                 password='tprPfh112233', 
-                                vhost=BMS_VHOST)
+                                vhost=BMS_VHOST,
+                                acceptors=[acceptor])
 
     def on_connect_callback():
         log.info("on_connect")
-        # register
-        acceptor = bms_client.bms_message_acceptor("path", "*")
-        client.register(acceptor)
 
-    def on_register_callback():
-        log.info("on_register")
+    def on_register_callback(message):
+        log.info("on_register - %s", message)
 
     def on_message_callback(message):
-        log.info("on_message - %s", message)    
+        log.info("on_message - %s", message)
 
     client.set_callbacks(on_connect_callback=on_connect_callback,
                          on_register_callback=on_register_callback,
                          on_message_callback=on_message_callback)
 
-    client.connect()
-    time.sleep(5)
+    with client as c:
+        time.sleep(15)
 
-    client.close()
     print "complete!"
 
 if __name__ == "__main__":
