@@ -52,7 +52,7 @@ def main():
     def on_message_callback(message):
         log.info("on_message - %s", message)
 
-    client.set_callbacks(on_connect_callback=on_connect_callback,
+    client.setCallbacks(on_connect_callback=on_connect_callback,
                          on_register_callback=on_register_callback,
                          on_message_callback=on_message_callback)
 

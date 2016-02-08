@@ -109,7 +109,7 @@ class bms_client(object):
         if appid:
             self.appid = appid
         else:
-            self.appid = self._generate_appid()
+            self.appid = self._generateAppid()
 
         self.connection = None
         self.channel = None
@@ -126,7 +126,7 @@ class bms_client(object):
         self.on_register_callback = None
         self.on_message_callback = None
 
-    def set_callbacks(self, on_connect_callback=None, on_register_callback=None, on_message_callback=None):
+    def setCallbacks(self, on_connect_callback=None, on_register_callback=None, on_message_callback=None):
         if on_connect_callback:
             self.on_connect_callback = on_connect_callback
         if on_register_callback:
@@ -134,7 +134,7 @@ class bms_client(object):
         if on_message_callback:
             self.on_message_callback = on_message_callback
 
-    def clear_callbacks(self):
+    def clearCallbacks(self):
         self.on_connect_callback = None
         self.on_register_callback = None
         self.on_message_callback = None
@@ -146,13 +146,13 @@ class bms_client(object):
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
 
-    def _id_generator(self, size=8, chars=string.ascii_uppercase + string.digits):
+    def _generateId(self, size=8, chars=string.ascii_uppercase + string.digits):
         return ''.join(random.choice(chars) for _ in range(size))
 
-    def _generate_appid(self):
-        return self._id_generator()
+    def _generateAppid(self):
+        return self._generateId()
 
-    def _consumer_thread_task(self):
+    def _consumerThreadTask(self):
         log.info('start consumer thread task')
         self.connection.ioloop.start()
         log.info('stop consumer thread task')
@@ -166,19 +166,19 @@ class bms_client(object):
                                                self.vhost, 
                                                credentials)
         self.connection = pika.SelectConnection(parameters,
-                                                self.on_connection_open,
+                                                self._onConnectionOpen,
                                                 stop_ioloop_on_close=False)
         log.info('start consuming messages')
-        self.consumer_thread = threading.Thread(target=self._consumer_thread_task)
+        self.consumer_thread = threading.Thread(target=self._consumerThreadTask)
         self.consumer_thread.start()
 
-    def on_connection_open(self, connection):
+    def _onConnectionOpen(self, connection):
         log.info('connected')
-        self.connection.add_on_close_callback(self.on_connection_closed)
+        self.connection.add_on_close_callback(self._onConnectionClosed)
         # open a channel
-        self.connection.channel(on_open_callback=self.on_channel_open)
+        self.connection.channel(on_open_callback=self._onChannelOpen)
 
-    def on_connection_closed(self, connection, reply_code, reply_text):
+    def _onConnectionClosed(self, connection, reply_code, reply_text):
         log.info('connection closed')
         self.channel = None
         if self.closing:
@@ -187,25 +187,25 @@ class bms_client(object):
             log.info('reconnect')
             self.connection.add_timeout(5, self.reconnect)
 
-    def on_channel_open(self, channel):
+    def _onChannelOpen(self, channel):
         log.info('open a channel')
         self.channel = channel
-        self.channel.add_on_close_callback(self.on_channel_closed)
+        self.channel.add_on_close_callback(self._onChannelClosed)
 
         log.info('declare a queue %s/%s', self.user, self.appid)
         # declare a queue
         self.queue = self.user + "/" + self.appid
-        self.channel.queue_declare(self.on_queue_declareok, 
+        self.channel.queue_declare(self._onQueueDeclareok, 
                                    queue=self.queue,
                                    durable=False, 
                                    exclusive=False, 
                                    auto_delete=True)
 
-    def on_queue_declareok(self, mothod_frame):
+    def _onQueueDeclareok(self, mothod_frame):
         log.info('declared a queue %s/%s', self.user, self.appid)
         # set consumer
-        self.channel.add_on_cancel_callback(self.on_consumer_cancelled)
-        self.consumer_tag = self.channel.basic_consume(self.on_message, 
+        self.channel.add_on_cancel_callback(self._onConsumerCancelled)
+        self.consumer_tag = self.channel.basic_consume(self._onMessage, 
                                                        queue=self.queue,
                                                        no_ack=False)
 
@@ -218,19 +218,19 @@ class bms_client(object):
             if self.acceptors:
                 self.register(self.acceptors)
 
-    def on_channel_closed(self, channel, reply_code, reply_text):
+    def _onChannelClosed(self, channel, reply_code, reply_text):
         log.info('channel closed')
         if self.registration_timer:
             self.registration_timer.cancel()
             self.registration_timer = None
         self.connection.close()
 
-    def on_consumer_cancelled(self, method_frame):
+    def _onConsumerCancelled(self, method_frame):
         log.info('consumer cancelled')
         if self.channel:
             self.channel.close()
 
-    def on_message(self, channel, method, properties, body):
+    def _onMessage(self, channel, method, properties, body):
         log.info('Received message # %s from %s: %s',
                     method.delivery_tag, properties.app_id, body)
 
@@ -257,23 +257,23 @@ class bms_client(object):
         self.closing = True
 
         if self.channel:
-            self.channel.basic_cancel(self.on_cancelok, self.consumer_tag)
+            self.channel.basic_cancel(self._onCancelok, self.consumer_tag)
 
         self.connection.ioloop.start()
         self.connection.close()
 
         self.consumer_thread = None
 
-    def on_cancelok(self, unused_frame):
+    def _onCancelok(self, unused_frame):
         self.channel.close()
 
-    def re_register(self):
+    def reRegister(self):
         if self.channel:
             log.info('re-register')
             if self.registration_msg:
-                self._register_with_string(self.registration_msg)
+                self._registerByString(self.registration_msg)
 
-    def _register_with_string(self, msg):
+    def _registerByString(self, msg):
         self.registration_msg = msg
         # set a message property
         prop = pika.BasicProperties(reply_to=self.queue)
@@ -288,7 +288,7 @@ class bms_client(object):
             self.registration_timer.cancel()
 
         if self.auto_reregistration:
-            self.registration_timer = threading.Timer(BMS_REREGISTRATION_SEC, self.re_register).start()
+            self.registration_timer = threading.Timer(BMS_REREGISTRATION_SEC, self.reRegister).start()
 
     def register(self, acceptors):
         log.info('register')
@@ -310,5 +310,5 @@ class bms_client(object):
                     "acceptors": acceptor_arr}
         reg_msg_str = json.dumps(reg_msg)
 
-        self._register_with_string(reg_msg_str)
+        self._registerByString(reg_msg_str)
 

@@ -86,6 +86,9 @@ class irods_status(object):
                             create_time=obj.create_time, 
                             modify_time=obj.modify_time)
 
+    def __eq__(self, other): 
+        return self.__dict__ == other.__dict__
+
     def __repr__(self): 
         rep_d = "F"
         if self.directory:
