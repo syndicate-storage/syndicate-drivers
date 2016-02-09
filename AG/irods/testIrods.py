@@ -21,7 +21,8 @@ import sys
 import hashlib
 import logging
 import time
-import irods_client
+
+from lib import irods_client
 
 logging.basicConfig( format='[%(asctime)s] [%(levelname)s] [%(module)s:%(lineno)d] %(message)s' )
 
@@ -48,7 +49,7 @@ def main():
     client = irods_client.irods_client(host=DATASTORE_HOST, 
                                 port=DATASTORE_PORT, 
                                 user='iychoi', 
-                                password='tprPfh112233', 
+                                password='', 
                                 zone=DATASTORE_ZONE)
     
     with client as c:

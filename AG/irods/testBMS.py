@@ -19,9 +19,9 @@
 import os
 import sys
 import logging
-import bms_client
 import time
 
+from lib import bms_client
 from retrying import retry
 from timeout import timeout
 
@@ -39,7 +39,7 @@ def main():
     client = bms_client.bms_client(host=BMS_HOST, 
                                 port=BMS_PORT, 
                                 user='iychoi', 
-                                password='tprPfh112233', 
+                                password='', 
                                 vhost=BMS_VHOST,
                                 acceptors=[acceptor])
 
