@@ -43,11 +43,11 @@ Timeout only works at a main thread.
 Do not call these functions directly.
 These functions are called by irods_client class!
 """
-@timeout(TIMEOUT_SECONDS)
+#@timeout(TIMEOUT_SECONDS)
 def _getCollection(session, path):
     return session.collections.get(path)
 
-@timeout(TIMEOUT_SECONDS)
+#@timeout(TIMEOUT_SECONDS)
 def _readLargeBlock(br):
     return br.read(1024*1024)
 

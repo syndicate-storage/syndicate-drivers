@@ -32,7 +32,7 @@ log.setLevel(logging.DEBUG)
 BMS_REGISTRATION_EXCHANGE = 'bms_registrations'
 BMS_REGISTRATION_QUEUE = 'bms_registrations'
 
-BMS_REREGISTRATION_SEC = 5
+BMS_REREGISTRATION_SEC = 5*60
 
 """
 Interface class to iPlant Border Message Server
@@ -288,7 +288,8 @@ class bms_client(object):
             self.registration_timer.cancel()
 
         if self.auto_reregistration:
-            self.registration_timer = threading.Timer(BMS_REREGISTRATION_SEC, self.reRegister).start()
+            self.registration_timer = threading.Timer(BMS_REREGISTRATION_SEC, self.reRegister)
+            self.registration_timer.start()
 
     def register(self, acceptors):
         log.info('register')

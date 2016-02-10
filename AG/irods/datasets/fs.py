@@ -24,23 +24,23 @@ import time
 import syndicate.ag.curation.specfile as AG_specfile
 import syndicate.ag.curation.crawl as AG_crawl
 
-DRIVER_NAME = "disk2"
+DRIVER_NAME = "fs"
 
 # list a directory 
-def disk2_listdir( fsclient, dirpath ):
-   return fsclient.listdir( dirpath ) )
+def fs_listdir( fs, dirpath ):
+   return fs.listdir( dirpath ) )
 
 # is this a directory?
-def disk2_isdir( fsclient, dirpath ):
-   return fsclient.isdir( dirpath )
+def fs_isdir( fs, dirpath ):
+   return fs.isdir( dirpath )
 
 # build a hierarchy, using sensible default callbacks
-def build_hierarchy( connection_info, root_dir, include_cb, disk2_specfile_cbs, max_retries=1, num_threads=1, allow_partial_failure=False ):
+def build_hierarchy( fs_conf, root_dir, include_cb, fs_specfile_cbs, max_retries=1, num_threads=1, allow_partial_failure=False ):
    
-   disk2_crawler_cbs = AG_crawl.crawler_callbacks( include_cb=include_cb,
-                                                  listdir_cb=disk2_listdir,
-                                                  isdir_cb=disk2_isdir )
+   fs_crawler_cbs = AG_crawl.crawler_callbacks( include_cb=include_cb,
+                                                  listdir_cb=fs_listdir,
+                                                  isdir_cb=fs_isdir )
    
-   hierarchy = AG_crawl.build_hierarchy( connection_info, root_dir, DRIVER_NAME, disk2_crawler_cbs, disk2_specfile_cbs, allow_partial_failure=allow_partial_failure, max_retries=max_retries )
+   hierarchy = AG_crawl.build_hierarchy( fs_conf, root_dir, DRIVER_NAME, fs_crawler_cbs, fs_specfile_cbs, allow_partial_failure=allow_partial_failure, max_retries=max_retries )
    
    return hierarchy

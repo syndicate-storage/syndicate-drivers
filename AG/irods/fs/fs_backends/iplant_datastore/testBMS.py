@@ -20,8 +20,8 @@ import os
 import sys
 import logging
 import time
+import bms_client
 
-from lib import bms_client
 from retrying import retry
 from timeout import timeout
 

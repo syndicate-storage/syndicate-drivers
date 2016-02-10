@@ -18,7 +18,6 @@
 
 import os
 import sys
-import hashlib
 import logging
 import time
 import threading
@@ -170,6 +169,9 @@ class dataset_tracker(object):
     def _unlock(self):
         self.lock.release()
 
+    def getRootPath(self):
+        return self.root_path
+
     def _onRequestUpdate(self, directory):
         if self.request_for_update_handler:
             self.request_for_update_handler(directory)
@@ -184,8 +186,12 @@ class dataset_tracker(object):
                         if e_directory:
                             e_directory.removeAllEntries()
 
-        if self.update_event_handler:
-            self.update_event_handler(updated_entries, added_entries, removed_entries)
+        if (updated_entries and len(updated_entries) > 0) or \
+           (added_entries and len(added_entries) > 0) or \
+           (removed_entries and len(removed_entries) > 0):
+            # if any of these are not empty
+            if self.update_event_handler:
+                self.update_event_handler(updated_entries, added_entries, removed_entries)
 
         if added_entries:
             for added_entry in added_entries:

@@ -21,8 +21,7 @@ import sys
 import hashlib
 import logging
 import time
-
-from lib import irods_client
+import irods_client
 
 logging.basicConfig( format='[%(asctime)s] [%(levelname)s] [%(module)s:%(lineno)d] %(message)s' )
 
