@@ -21,6 +21,33 @@ from abc import ABCMeta, abstractmethod
 """
 Abstraction of filesystem insterface
 """
+class fs_stat(object):
+    def __init__(self, directory=False, 
+                       path=None,
+                       name=None, 
+                       size=0,
+                       checksum=0,
+                       create_time=0,
+                       modify_time=0):
+        self.directory = directory
+        self.path = path
+        self.name = name
+        self.size = size
+        self.checksum = checksum
+        self.create_time = create_time
+        self.modify_time = modify_time
+
+    def __eq__(self, other): 
+        return self.__dict__ == other.__dict__
+
+    def __repr__(self): 
+        rep_d = "F"
+        if self.directory:
+            rep_d = "D"
+
+        return "<fs_stat %s %s %d %s>" % (rep_d, self.name, self.size, self.checksum) 
+
+
 class fs_base(object):
     __metaclass__ = ABCMeta
 
@@ -40,11 +67,19 @@ class fs_base(object):
         self.close()
 
     @abstractmethod
+    def exists(self, path):
+        pass
+
+    @abstractmethod
     def list_dir(self, dirpath):
         pass
 
     @abstractmethod
     def is_dir(self, dirpath):
+        pass
+
+    @abstractmethod
+    def read(self, filepath, offset, size):
         pass
 
     @abstractmethod
@@ -58,3 +93,4 @@ class fs_base(object):
     @abstractmethod
     def set_notification_cb(self, notification_cb):
         pass
+

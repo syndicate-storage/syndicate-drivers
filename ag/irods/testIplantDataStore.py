@@ -41,21 +41,21 @@ def main():
     irods_config["host"] = DATASTORE_HOST
     irods_config["port"] = DATASTORE_PORT
     irods_config["zone"] = DATASTORE_ZONE
-    irods_config["user"] = "iychoi"
-    irods_config["password"] = ""
 
     bms_config = {}
     bms_config["host"] = BMS_HOST
     bms_config["port"] = BMS_PORT
     bms_config["vhost"] = BMS_VHOST
-    bms_config["user"] = "iychoi"
-    bms_config["password"] = ""
-    bms_config["dataset_root"] = "/iplant/home/iychoi"
-    
+
+    secrets = {}
+    secrets["user"] = "iychoi"
+    secrets["password"] = ""
 
     backend_config = {}
     backend_config["irods"] = irods_config
     backend_config["bms"] = bms_config
+    backend_config["dataset_root"] = "/iplant/home/iychoi"
+    backend_config["secrets"] = secrets
 
     def update_callback(updated_entries, added_entries, removed_entries):
         log.info("update-callback")

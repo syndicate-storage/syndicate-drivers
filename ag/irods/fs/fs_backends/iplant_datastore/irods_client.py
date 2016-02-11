@@ -132,11 +132,12 @@ class irods_client(object):
     @retry(stop_max_attempt_number=MAX_ATTEMPT, wait_fixed=ATTEMPT_INTERVAL, wrap_exception=True)
     def list(self, path):
         coll = _getCollection(self.session, path)
+        entries = []
         for col in coll.subcollections:
-            yield col.path
+            entries.append(col.name)
 
         for obj in coll.data_objects:
-            yield obj.path
+            entries.append(obj.name)
 
     """
     Returns directory entries with status
@@ -144,11 +145,12 @@ class irods_client(object):
     @retry(stop_max_attempt_number=MAX_ATTEMPT, wait_fixed=ATTEMPT_INTERVAL, wrap_exception=True)
     def listStats(self, path):
         coll = _getCollection(self.session, path)
+        stats = []
         for col in coll.subcollections:
-            yield irods_status.fromCollection(col)
+            stats.append(irods_status.fromCollection(col))
 
         for obj in coll.data_objects:
-            yield irods_status.fromDataObject(obj)
+            stats.append(irods_status.fromDataObject(obj))
 
     @retry(stop_max_attempt_number=MAX_ATTEMPT, wait_fixed=ATTEMPT_INTERVAL, wrap_exception=True)
     def isDir(self, path):
@@ -190,6 +192,27 @@ class irods_client(object):
                 return irods_status.fromDataObject(obj)
 
         return None
+
+    @retry(stop_max_attempt_number=MAX_ATTEMPT, wait_fixed=ATTEMPT_INTERVAL, wrap_exception=True)
+    def read(self, path, offset, size):
+        buf = None
+        br = None
+        conn = None
+        try:
+            conn, desc = self.session.data_objects.open(path, O_RDONLY)
+            raw = iRODSDataObjectFileRaw(conn, desc)
+            br = BufferedRandom(raw)
+            new_offset = br.seek(offset)
+            
+            if new_offset == offset:
+                buf = br.read(size)
+        finally:
+            if br:
+                br.close()
+            if conn:
+                conn.release(True)
+
+        return buf
 
     @retry(stop_max_attempt_number=MAX_ATTEMPT, wait_fixed=ATTEMPT_INTERVAL, wrap_exception=True)
     def download(self, path, to):

@@ -39,6 +39,23 @@ class backend_impl(abstract_fs.fs_base):
         if not config:
             raise ValueError("fs configuration is not given correctly")
 
+        dataset_root = config.get("dataset_root")
+        if not dataset_root:
+            raise ValueError("dataset_root configuration is not given correctly")
+        dataset_root = dataset_root.rstrip("/")
+
+        secrets = config.get("secrets")
+        if not secrets:
+            raise ValueError("secrets are not given correctly")
+
+        user = secrets.get("user")
+        if not user:
+            raise ValueError("user is not given correctly")
+
+        password = secrets.get("password")
+        if not password:
+            raise ValueError("password is not given correctly")
+
         irods_config = config.get("irods")
         if not irods_config:
             raise ValueError("irods configuration is not given correctly")
@@ -53,23 +70,18 @@ class backend_impl(abstract_fs.fs_base):
         # init irods client
         self.irods = irods_client.irods_client(host=self.irods_config["host"], 
                                                port=self.irods_config["port"], 
-                                               user=self.irods_config["user"], 
-                                               password=self.irods_config["password"], 
+                                               user=user, 
+                                               password=password, 
                                                zone=self.irods_config["zone"])
         # init bms client
-        if self.bms_config.get("dataset_root"):
-            dataset_root = self.bms_config["dataset_root"].rstrip("/")
-        else:
-            dataset_root = "/"
-
         path_filter = dataset_root.rstrip("/") + "/*"
 
         acceptor = bms_client.bms_message_acceptor("path", 
                                                    path_filter)
         self.bms = bms_client.bms_client(host=self.bms_config["host"], 
                                          port=self.bms_config["port"], 
-                                         user=self.bms_config["user"], 
-                                         password=self.bms_config["password"], 
+                                         user=user, 
+                                         password=password, 
                                          vhost=self.bms_config["vhost"],
                                          acceptors=[acceptor])
 
@@ -88,26 +100,36 @@ class backend_impl(abstract_fs.fs_base):
 
         # TODO: parse message and update directory
         entries = self.irods.listStats(entry.path)
-        l_entries = list(entries)
-        self.dataset_tracker.updateDirectory(path=entry.path, entries=l_entries)
+        stats = []
+        for entry in entries:
+            stat = abstract_fs.fs_stat(directory=entry.directory, 
+                                       path=entry.path,
+                                       name=entry.name, 
+                                       size=entry.size,
+                                       checksum=entry.checksum,
+                                       create_time=entry.create_time,
+                                       modify_time=entry.modify_time)
+            stats.append(stat)
+
+        self.dataset_tracker.updateDirectory(path=entry.path, entries=stats)
 
     def _on_dataset_update(self, updated_entries, added_entries, removed_entries):
-        if updated_entries:
-            updated_entries = list(updated_entries)
-
-        if added_entries:
-            added_entries = list(added_entries)
-
-        if removed_entries:
-            removed_entries = list(removed_entries)
-
         if self.notification_cb:
             self.notification_cb(updated_entries, added_entries, removed_entries)
 
     def _on_request_update(self, entry):
         entries = self.irods.listStats(entry.path)
-        l_entries = list(entries)
-        self.dataset_tracker.updateDirectory(path=entry.path, entries=l_entries)
+        stats = []
+        for entry in entries:
+            stat = abstract_fs.fs_stat(directory=entry.directory, 
+                                       path=entry.path,
+                                       name=entry.name, 
+                                       size=entry.size,
+                                       checksum=entry.checksum,
+                                       create_time=entry.create_time,
+                                       modify_time=entry.modify_time)
+            stats.append(stat)
+        self.dataset_tracker.updateDirectory(path=entry.path, entries=stats)
 
     def connect(self):
         self.irods.connect()
@@ -116,18 +138,32 @@ class backend_impl(abstract_fs.fs_base):
         # add initial dataset
         dataset_root = self.dataset_tracker.getRootPath()
         entries = self.irods.listStats(dataset_root)
-        l_entries = list(entries)
-        self.dataset_tracker.updateDirectory(path=dataset_root, entries=l_entries)
+        for entry in entries:
+            stat = abstract_fs.fs_stat(directory=entry.directory, 
+                                       path=entry.path,
+                                       name=entry.name, 
+                                       size=entry.size,
+                                       checksum=entry.checksum,
+                                       create_time=entry.create_time,
+                                       modify_time=entry.modify_time)
+            stats.append(stat)
+        self.dataset_tracker.updateDirectory(path=dataset_root, entries=stats)
 
     def close(self):
         self.bms.close()
         self.irods.close()
 
+    def exists(self, path):
+        return self.irods.exists(path)
+
     def list_dir(self, dirpath):
-        return self.irods.listStats(dirpath)
+        return self.irods.list(dirpath)
 
     def is_dir(self, dirpath):
         return self.irods.isDir(dirpath)
+
+    def read(self, filepath, offset, size):
+        return self.irods.read(filepath, offset, size)
 
     def backend(self):
         return self.__class__
