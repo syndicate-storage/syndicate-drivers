@@ -98,20 +98,64 @@ class backend_impl(abstract_fs.fs_base):
     def _on_bms_message_receive(self, message):
         log.info("_on_bms_message_received - %s", message)
 
-        # TODO: parse message and update directory
-        entries = self.irods.listStats(entry.path)
-        stats = []
-        for entry in entries:
-            stat = abstract_fs.fs_stat(directory=entry.directory, 
-                                       path=entry.path,
-                                       name=entry.name, 
-                                       size=entry.size,
-                                       checksum=entry.checksum,
-                                       create_time=entry.create_time,
-                                       modify_time=entry.modify_time)
-            stats.append(stat)
+        # parse message and update directory
+        if not message or len(message) <= 0:
+            return
 
-        self.dataset_tracker.updateDirectory(path=entry.path, entries=stats)
+        msg = json.loads(message)
+        operation = msg.get("operation")
+        if operation:
+            if operation in ["collection.add", "collection.rm", "data-object.add", "data-object.rm", "data-object.mod"]:
+                path = msg.get("path")
+                if path:
+                    parent_path = os.path.dirname(path)
+                    entries = self.irods.listStats(parent_path)
+                    stats = []
+                    for e in entries:
+                        stat = abstract_fs.fs_stat(directory=e.directory, 
+                                                   path=e.path,
+                                                   name=e.name, 
+                                                   size=e.size,
+                                                   checksum=e.checksum,
+                                                   create_time=e.create_time,
+                                                   modify_time=e.modify_time)
+                        stats.append(stat)
+                    self.dataset_tracker.updateDirectory(path=parent_path, entries=stats)
+
+            elif operation in ["collection.mv", "data-object.mv"]:
+                old_path = msg.get("old-path")
+                old_parent_path = None
+                if old_path:
+                    old_parent_path = os.path.dirname(old_path)
+                    entries = self.irods.listStats(old_parent_path)
+                    stats = []
+                    for e in entries:
+                        stat = abstract_fs.fs_stat(directory=e.directory, 
+                                                   path=e.path,
+                                                   name=e.name, 
+                                                   size=e.size,
+                                                   checksum=e.checksum,
+                                                   create_time=e.create_time,
+                                                   modify_time=e.modify_time)
+                        stats.append(stat)
+                    self.dataset_tracker.updateDirectory(path=old_parent_path, entries=stats)
+
+                new_path = msg.get("new-path")
+                if new_path:
+                    new_parent_path = os.path.dirname(new_path)
+                    if new_parent_path != old_parent_path:
+                        entries = self.irods.listStats(new_parent_path)
+                        stats = []
+                        for e in entries:
+                            stat = abstract_fs.fs_stat(directory=e.directory, 
+                                                       path=e.path,
+                                                       name=e.name, 
+                                                       size=e.size,
+                                                       checksum=e.checksum,
+                                                       create_time=e.create_time,
+                                                       modify_time=e.modify_time)
+                            stats.append(stat)
+                        self.dataset_tracker.updateDirectory(path=new_parent_path, entries=stats)
 
     def _on_dataset_update(self, updated_entries, added_entries, removed_entries):
         if self.notification_cb:
@@ -120,14 +164,14 @@ class backend_impl(abstract_fs.fs_base):
     def _on_request_update(self, entry):
         entries = self.irods.listStats(entry.path)
         stats = []
-        for entry in entries:
-            stat = abstract_fs.fs_stat(directory=entry.directory, 
-                                       path=entry.path,
-                                       name=entry.name, 
-                                       size=entry.size,
-                                       checksum=entry.checksum,
-                                       create_time=entry.create_time,
-                                       modify_time=entry.modify_time)
+        for e in entries:
+            stat = abstract_fs.fs_stat(directory=e.directory, 
+                                       path=e.path,
+                                       name=e.name, 
+                                       size=e.size,
+                                       checksum=e.checksum,
+                                       create_time=e.create_time,
+                                       modify_time=e.modify_time)
             stats.append(stat)
         self.dataset_tracker.updateDirectory(path=entry.path, entries=stats)
 
