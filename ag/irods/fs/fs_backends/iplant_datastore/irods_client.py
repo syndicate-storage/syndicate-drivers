@@ -138,6 +138,7 @@ class irods_client(object):
 
         for obj in coll.data_objects:
             entries.append(obj.name)
+        return entries
 
     """
     Returns directory entries with status
@@ -151,6 +152,7 @@ class irods_client(object):
 
         for obj in coll.data_objects:
             stats.append(irods_status.fromDataObject(obj))
+        return stats
 
     @retry(stop_max_attempt_number=MAX_ATTEMPT, wait_fixed=ATTEMPT_INTERVAL, wrap_exception=True)
     def isDir(self, path):
